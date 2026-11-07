@@ -1,0 +1,43 @@
+# Unity-generated state
+/[Ll]ibrary/
+/[Tt]emp/
+/[Ll]ogs/
+/[Oo]bj/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/work/
+
+# Local build products, including generated Xcode projects
+/[Bb]uilds/
+/[Bb]uild/
+/*.aab
+/*.apk
+/*.ipa
+/DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.xcuserstate
+xcuserdata/
+*.dSYM/
+*.dSYM.zip
+
+# IDE files
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+.vs/
+.idea/
+.vscode/
+
+# Signing material must be managed by Unity Cloud Build / Apple, never Git
+*.keystore
+*.jks
+*.p12
+*.p8
+*.pfx
+*.cer
+*.mobileprovision
+*.provisionprofile

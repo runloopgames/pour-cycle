@@ -1,0 +1,2 @@
+# Play Trials is invoked from Unity through JNI by class and method name.
+-keep class com.google.android.play.trials.PlayTrials { public *; }
