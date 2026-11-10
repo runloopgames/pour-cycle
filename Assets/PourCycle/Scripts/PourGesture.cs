@@ -17,4 +17,31 @@ namespace PourCycle {
   public PourAction End(){if(!Active)return PourAction.None;Active=false;if(fired)return PourAction.None;return Tilted?PourAction.Hold:Elapsed>=Threshold?PourAction.Release:PourAction.Pour;}
   public void Cancel(){Active=false;Elapsed=0;fired=false;}
  }
+#if UNITY_IOS
+ public sealed class TiltPourGesture {
+  public bool Active {get;private set;}
+  public bool Triggered {get;private set;}
+  public float Elapsed {get;private set;}
+  public float Threshold {get;private set;}
+  public float PressElapsed {get;private set;}
+  public float ReleaseThreshold {get;private set;}
+  public float Progress=>Active?Math.Min(1,Elapsed/Threshold):0;
+  public void Begin(float threshold,float releaseThreshold){Active=true;Triggered=false;Elapsed=0;PressElapsed=0;Threshold=Math.Max(.05f,threshold);ReleaseThreshold=Math.Max(.1f,releaseThreshold);}
+  public bool Tick(float delta,bool tilted){
+   if(!Active||Triggered)return false;
+   PressElapsed+=Math.Max(0,delta);
+   if(!tilted){Elapsed=0;return false;}
+   Elapsed+=Math.Max(0,delta);
+   if(Elapsed<Threshold)return false;
+   Triggered=true;return true;
+  }
+  public PourAction End(){
+   if(!Active)return PourAction.None;
+   Active=false;
+   PourAction action=Triggered?PourAction.None:PressElapsed>=ReleaseThreshold?PourAction.Release:PourAction.Hold;
+   Triggered=false;Elapsed=0;PressElapsed=0;return action;
+  }
+  public void Cancel(){Active=false;Triggered=false;Elapsed=0;PressElapsed=0;}
+ }
+#endif
 }

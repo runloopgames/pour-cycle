@@ -24,7 +24,13 @@ namespace PourCycle {
     float w=ingredients.Length>6?190:210,h=ingredients.Length>6?210:230,size=ingredients.Length>6?170:190;
     icons[i]=UiFactory.Rect(root,"Upright "+ingredients[i],0,0,w,h);
     UiFactory.Icon(icons[i],ingredients[i],w*.5f,h*.45f,size);
-    UiFactory.Text(icons[i],ingredients[i].ToString(),w*.5f,h-10,w,32,ingredients.Length>6?22:25);
+    float labelY=
+#if UNITY_IOS
+     h+18;
+#else
+     h-10;
+#endif
+    UiFactory.Text(icons[i],ingredients[i].ToString(),w*.5f,labelY,w,32,ingredients.Length>6?22:25);
    }
    Position();return root;
   }

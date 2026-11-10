@@ -24,6 +24,17 @@ using System; using System.Linq; namespace PourCycle.Editor { public static clas
    Check(!p.Press(Ingredient.RED,false).Success,"no match fails without changing orders");
    var releaseGesture=new PourGesture();releaseGesture.Begin(false,.35f);Check(releaseGesture.Tick(.34f,false)==PourAction.None,"long press waits for threshold");Check(releaseGesture.Tick(.02f,false)==PourAction.Release,"long press fires release");Check(releaseGesture.End()==PourAction.None,"long press does not also pour on release");
    releaseGesture.Begin(true,.35f);Check(releaseGesture.Tick(.5f,true)==PourAction.None&&releaseGesture.End()==PourAction.Hold,"tilted press remains hold");
+#if UNITY_IOS
+   var tiltPourGesture=new TiltPourGesture();
+   Check(!tiltPourGesture.Tick(.5f,true),"tilt pour requires button press");
+   tiltPourGesture.Begin(.12f,.35f);Check(!tiltPourGesture.Tick(.06f,false)&&!tiltPourGesture.Tick(.06f,true)&&tiltPourGesture.Tick(.07f,true),"tilt pour supports button before tilt");
+   Check(!tiltPourGesture.Tick(.5f,true)&&tiltPourGesture.End()==PourAction.None,"tilt pour fires once per press without a release action");
+   tiltPourGesture.Begin(.12f,.35f);Check(tiltPourGesture.Tick(.12f,true),"tilt pour supports tilt before button");tiltPourGesture.End();
+   tiltPourGesture.Begin(.12f,.35f);Check(!tiltPourGesture.Tick(.07f,true)&&!tiltPourGesture.Tick(.01f,false)&&!tiltPourGesture.Tick(.07f,true),"tilt pour rejects brief hand jitter");tiltPourGesture.End();
+   tiltPourGesture.Begin(.12f,.35f);tiltPourGesture.Tick(.1f,false);Check(tiltPourGesture.End()==PourAction.Hold,"tilt pour keeps short upright hold action");
+   tiltPourGesture.Begin(.12f,.35f);tiltPourGesture.Tick(.36f,false);Check(tiltPourGesture.End()==PourAction.Release,"tilt pour keeps long upright release action");
+   Check(!tiltPourGesture.Tick(.5f,true),"tilt pour release stops input immediately");
+#endif
    var staged=new PourController(false,new LevelConfig{LevelNumber=5,HoldCapacity=6},7);
    staged.Orders.Slots[0]=new OrderData(1,Ingredient.RED,Ingredient.FOAM);
    staged.Orders.Slots[1]=new OrderData(2,Ingredient.BLUE,Ingredient.RED);
