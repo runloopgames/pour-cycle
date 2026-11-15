@@ -17,7 +17,6 @@ namespace PourCycle {
   public PourAction End(){if(!Active)return PourAction.None;Active=false;if(fired)return PourAction.None;return Tilted?PourAction.Hold:Elapsed>=Threshold?PourAction.Release:PourAction.Pour;}
   public void Cancel(){Active=false;Elapsed=0;fired=false;}
  }
-#if UNITY_IOS
  public sealed class TiltPourGesture {
   public bool Active {get;private set;}
   public bool Triggered {get;private set;}
@@ -43,5 +42,4 @@ namespace PourCycle {
   }
   public void Cancel(){Active=false;Triggered=false;Elapsed=0;PressElapsed=0;}
  }
-#endif
 }

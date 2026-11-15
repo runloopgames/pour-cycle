@@ -7,30 +7,20 @@ namespace PourCycle {
   public void Play(string cue,int level=0){
    string key=cue+level;
    if(!clips.TryGetValue(key,out var clip)) {
-    float duration=cue=="complete"?
-#if UNITY_IOS
-     .20f:
-#else
-     .30f:
-#endif
-     cue=="select"?.055f:cue=="release"||cue=="all"?.38f:.17f;
+    float duration=cue=="complete"?.28f:cue=="select"?.055f:cue=="release"||cue=="all"?.38f:.17f;
     int n=(int)(44100*duration);var data=new float[n];
     if(cue=="complete"){
      float pitch=Mathf.Pow(1.025f,Mathf.Clamp(level,0,2));
      for(int i=0;i<n;i++){
       float t=i/44100f;
-#if UNITY_IOS
-      float envelope=(1-Mathf.Exp(-t*220f))*Mathf.Exp(-t*20f);
-      float chime=Mathf.Sin(2*Mathf.PI*1318.51f*pitch*t)+.32f*Mathf.Sin(2*Mathf.PI*1977.77f*pitch*t)+.16f*Mathf.Sin(2*Mathf.PI*2637.02f*pitch*t);
-      data[i]=chime*envelope*.16f;
-#else
-      float popTime=Mathf.Min(t,.14f),popEnvelope=Mathf.Sin(Mathf.PI*popTime/.14f)*Mathf.Exp(-popTime*7f);
-      float popPhase=2*Mathf.PI*(330f*popTime-105f*popTime*popTime);
-      float pop=(Mathf.Sin(popPhase)+.22f*Mathf.Sin(popPhase*2f))*popEnvelope*.18f;
-      float chimeTime=t-.105f,chime=0;
-      if(chimeTime>0){float chimeEnvelope=(1-Mathf.Exp(-chimeTime*90f))*Mathf.Exp(-chimeTime*13f);chime=(Mathf.Sin(2*Mathf.PI*1046.5f*pitch*chimeTime)+.38f*Mathf.Sin(2*Mathf.PI*1568f*pitch*chimeTime))*chimeEnvelope*.105f;}
-      data[i]=pop+chime;
-#endif
+      float bodyAttack=Mathf.SmoothStep(0,1,Mathf.Clamp01(t/.02f));
+      float shimmerAttack=Mathf.SmoothStep(0,1,Mathf.Clamp01(t/.014f));
+      float bodyEnvelope=bodyAttack*Mathf.Exp(-t*9f);
+      float shimmerEnvelope=shimmerAttack*Mathf.Exp(-t*25f);
+      float tailFade=1-Mathf.SmoothStep(0,1,Mathf.Clamp01((t-.22f)/.06f));
+      float chime=(Mathf.Sin(2*Mathf.PI*1108.73f*pitch*t)+.18f*Mathf.Sin(2*Mathf.PI*1121.2f*pitch*t))*bodyEnvelope
+       +(.065f*Mathf.Sin(2*Mathf.PI*1632.4f*pitch*t)+.018f*Mathf.Sin(2*Mathf.PI*2381.7f*pitch*t))*shimmerEnvelope;
+      data[i]=chime*tailFade*.15f;
      }
     }else{
      float frequency=cue=="error"?130:cue=="select"?620:cue=="hold"?440*Mathf.Pow(1.2599f,level):cue=="pour"?520:cue=="release"?660:990;

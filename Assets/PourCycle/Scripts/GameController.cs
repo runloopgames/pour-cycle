@@ -18,19 +18,14 @@ namespace PourCycle {
   [Range(.12f,.18f)] public float ChainStepSeconds=.15f;
   public TiltInputController Tilt;
   readonly PourGesture pourGesture=new PourGesture();Image releaseFill;bool keyboardPour,resolvingChain;PointerDownButton[] resultButtons;float resultInputUnlockAt;bool resultWaitForPointerRelease;
-#if UNITY_IOS
-  enum IOSControlMode {Classic,TiltPour}
-  const string IOSControlModeKey="PourCycle.iOS.Control";
+  enum ControlMode {Classic,TiltPour}
+  const string ControlModeKey="PourCycle.Control";
+  const string LegacyIOSControlModeKey="PourCycle.iOS.Control";
   const float TiltPourActivationSeconds=.12f;
   readonly TiltPourGesture tiltPourGesture=new TiltPourGesture();
-  IOSControlMode iosControlMode;
-  bool IsTiltPourMode=>iosControlMode==IOSControlMode.TiltPour;
-#endif
-  bool PourInputActive=>pourGesture.Active
-#if UNITY_IOS
-   ||(IsTiltPourMode&&tiltPourGesture.Active)
-#endif
-  ;
+  ControlMode controlMode;
+  bool IsTiltPourMode=>controlMode==ControlMode.TiltPour;
+  bool PourInputActive=>pourGesture.Active||(IsTiltPourMode&&tiltPourGesture.Active);
   KeyCode pourKey;public int ActiveChainCount {get;private set;}public int LastChainCount {get;private set;}
   PourController pour; SessionController session; CarouselController carousel;
   OrderPatienceController patience; HandednessController hand; AudioController audioFx;
@@ -58,9 +53,7 @@ namespace PourCycle {
 #if UNITY_IOS && !UNITY_EDITOR
    Screen.orientation=ScreenOrientation.Portrait;
 #endif
-#if UNITY_IOS
-   iosControlMode=PlayerPrefs.GetInt(IOSControlModeKey,0)==1?IOSControlMode.TiltPour:IOSControlMode.Classic;
-#endif
+   LoadControlMode();
 #if UNITY_ANDROID || UNITY_EDITOR
    if(GetComponent<PlayTrialLifecycle>()==null)gameObject.AddComponent<PlayTrialLifecycle>();
    playTrialService=new PlayTrialService();
@@ -74,6 +67,12 @@ namespace PourCycle {
    foreach(var level in Levels)if(level!=null&&level.HoldCapacity<=0)level.HoldCapacity=LevelConfig.DefaultHoldCapacity(level.LevelNumber);
    if(FindObjectOfType<EventSystem>()==null)new GameObject("EventSystem",typeof(EventSystem),typeof(StandaloneInputModule));
    DrawMainMenu();
+  }
+  void LoadControlMode(){
+   if(!PlayerPrefs.HasKey(ControlModeKey)&&PlayerPrefs.HasKey(LegacyIOSControlModeKey)){
+    PlayerPrefs.SetInt(ControlModeKey,PlayerPrefs.GetInt(LegacyIOSControlModeKey,0)==1?1:0);PlayerPrefs.Save();
+   }
+   controlMode=PlayerPrefs.GetInt(ControlModeKey,0)==1?ControlMode.TiltPour:ControlMode.Classic;
   }
   void ApplyHandToTilt(){if(Tilt!=null&&hand!=null)Tilt.LeftHand=hand.Left;}
   void Fit(){
@@ -235,24 +234,15 @@ namespace PourCycle {
   void DrawSettings(bool fromPause){
    mode=ScreenMode.Settings;ClearBoard();
    UiFactory.Text(board,"SETTINGS",540,310,900,100,62);
-#if UNITY_IOS
    UiFactory.Text(board,"HAND",540,500,620,50,30);
    UiFactory.Button(board,hand.Left?"LEFT":"RIGHT",540,610,520,125,()=>{hand.Toggle();DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=40;
    UiFactory.Text(board,"CONTROL",540,790,620,50,30);
-   UiFactory.Button(board,IsTiltPourMode?"TILT POUR":"CLASSIC",540,900,520,125,()=>{CancelPourPress();iosControlMode=IsTiltPourMode?IOSControlMode.Classic:IOSControlMode.TiltPour;PlayerPrefs.SetInt(IOSControlModeKey,(int)iosControlMode);PlayerPrefs.Save();DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=38;
+   UiFactory.Button(board,IsTiltPourMode?"TILT POUR":"CLASSIC",540,900,520,125,()=>{CancelPourPress();controlMode=IsTiltPourMode?ControlMode.Classic:ControlMode.TiltPour;PlayerPrefs.SetInt(ControlModeKey,(int)controlMode);PlayerPrefs.Save();DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=38;
    UiFactory.Text(board,IsTiltPourMode?"TILT POUR / TAP HOLD / LONG RELEASE":"TAP POUR / TILT HOLD",540,1000,800,40,20,UiFactory.Ink);
    UiFactory.Text(board,"Tilt Calibration",540,1160,620,50,30);
    UiFactory.Button(board,"CALIBRATE",540,1265,520,125,()=>{Tilt.Calibrate();notice="TILT CALIBRATED";noticeUntil=Time.time+1.2f;DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=36;
    UiFactory.Button(board,fromPause?"BACK":"HOME",540,1600,520,125,()=>{if(fromPause)DrawPause();else DrawMainMenu();}).GetComponentInChildren<TextMeshProUGUI>().fontSize=36;
    if(Time.time<noticeUntil)UiFactory.Text(board,notice,540,1450,800,60,30,UiFactory.Ink);
-#else
-   UiFactory.Text(board,"HAND",540,560,620,50,30);
-   UiFactory.Button(board,hand.Left?"LEFT":"RIGHT",540,665,520,125,()=>{hand.Toggle();DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=40;
-   UiFactory.Text(board,"Tilt Calibration",540,850,620,50,30);
-   UiFactory.Button(board,"CALIBRATE",540,955,520,125,()=>{Tilt.Calibrate();notice="TILT CALIBRATED";noticeUntil=Time.time+1.2f;DrawSettings(fromPause);}).GetComponentInChildren<TextMeshProUGUI>().fontSize=36;
-   UiFactory.Button(board,fromPause?"BACK":"HOME",540,1240,520,125,()=>{if(fromPause)DrawPause();else DrawMainMenu();}).GetComponentInChildren<TextMeshProUGUI>().fontSize=36;
-   if(Time.time<noticeUntil)UiFactory.Text(board,notice,540,1120,800,60,30,UiFactory.Ink);
-#endif
   }
   void DrawPause(){
    mode=ScreenMode.Pause;ClearBoard();
@@ -273,18 +263,8 @@ namespace PourCycle {
    for(int i=0;i<3;i++){cards[i]=new OrderCardView(board,pour.Orders.Slots[i],i);cards[i].Patience(patience.Fraction(i),patience.Seconds(i),session.Demo&&FreezePatienceInPreview,DebugMode);cups[i]=new CupView(board,pour.Orders.Slots[i],i,pour.Orders.Slots[i].Step);}
    ring=carousel.Draw(board,hand);selectedView=new SelectedItemView(board,hand,carousel.Selected,pour.Buffer);
    selectButton=UiFactory.Button(board,"SELECT",hand.X(915),1580,310,135,()=>SelectWithModifier(Tilt.Modifier));
-   string pourButtonTitle=
-#if UNITY_IOS
-    IsTiltPourMode?"POUR":"POUR&ON";
-#else
-    "POUR&ON";
-#endif
-   string pourButtonHint=
-#if UNITY_IOS
-    IsTiltPourMode?"TILT POUR / TAP HOLD":"TAP POUR / HOLD RELEASE";
-#else
-    "TAP POUR / HOLD RELEASE";
-#endif
+   string pourButtonTitle=IsTiltPourMode?"POUR":"POUR&ON";
+   string pourButtonHint=IsTiltPourMode?"TILT POUR / TAP HOLD":"TAP POUR / HOLD RELEASE";
    pourButton=UiFactory.RoundBox(board,pourButtonTitle,hand.X(915),1745,310,135,UiFactory.Grey);pourButton.raycastTarget=true;
    releaseFill=UiFactory.Box(pourButton.transform,"Long press progress",0,128,0,7,new Color(.12f,.76f,.72f));releaseFill.rectTransform.pivot=new Vector2(0,.5f);
    UiFactory.Text(pourButton.transform,pourButtonTitle,155,58,298,72,34);
@@ -320,18 +300,12 @@ namespace PourCycle {
     if(expired){StartCoroutine(ResolveMissed(expiredSlots));return;}}
    timer.text="SALES "+session.PlayerSales+"     RIVAL "+session.RivalSales;
    if(status!=null)status.text=Time.time<noticeUntil?notice:
-#if UNITY_IOS
     IsTiltPourMode?(PourInputActive?(Tilt.PourModifier?"POUR TILT ON":"POUR ARMED"):"TILT SELECT / HOLD POUR"):
-#endif
     Tilt.Modifier?"TILT ON / BACK + HOLD":"UPRIGHT / SELECT + POUR";
    for(int i=0;i<3;i++)cards[i].Patience(patience.Fraction(i),patience.Seconds(i),practice,DebugMode);
    if(Input.GetKeyDown(KeyCode.A)||Input.GetKeyDown(KeyCode.RightArrow))SelectWithModifier(Tilt.Modifier);
    if(!PourInputActive&&!busy&&(Input.GetKeyDown(KeyCode.Space)||Input.GetKeyDown(KeyCode.Return))){BeginPourPress(Tilt.Modifier);keyboardPour=true;pourKey=Input.GetKeyDown(KeyCode.Space)?KeyCode.Space:KeyCode.Return;}
-#if UNITY_IOS
    if(IsTiltPourMode)UpdateTiltPour();else UpdateClassicPour();
-#else
-   UpdateClassicPour();
-#endif
    if(Input.GetKeyDown(KeyCode.Escape)&&!busy)DrawPause();
   }
   IEnumerator ResolveMissed(bool[] expiredSlots){
@@ -354,7 +328,6 @@ namespace PourCycle {
     else if(keyboardPour&&Input.GetKeyUp(pourKey))EndPourPress();
    }else if(releaseFill!=null)releaseFill.rectTransform.sizeDelta=new Vector2(0,7);
   }
-#if UNITY_IOS
   void UpdateTiltPour(){
    if(tiltPourGesture.Active){
     if(tiltPourGesture.Tick(Time.unscaledDeltaTime,Tilt.PourModifier))PourWithModifier(false);
@@ -362,7 +335,6 @@ namespace PourCycle {
     if(keyboardPour&&Input.GetKeyUp(pourKey))EndPourPress();
    }else if(releaseFill!=null)releaseFill.rectTransform.sizeDelta=new Vector2(0,7);
   }
-#endif
   public void SelectWithModifier(bool back){if(mode!=ScreenMode.Gameplay||busy||ending||session.Ended||PourInputActive)return;carousel.Step(back);audioFx.Play("select");DrawGameplay();StartCoroutine(Flash(selectButton));}
   IEnumerator Flash(Image target){target.color=UiFactory.Lime;yield return new WaitForSeconds(.14f);if(target!=null)target.color=UiFactory.Grey;}
   public void PourWithModifier(bool modifier){
@@ -373,28 +345,22 @@ namespace PourCycle {
   }
   public void BeginPourPress(bool modifier){
    if(mode!=ScreenMode.Gameplay||busy||ending||session.Ended||PourInputActive)return;
-#if UNITY_IOS
    if(IsTiltPourMode){keyboardPour=false;tiltPourGesture.Begin(TiltPourActivationSeconds,ReleaseHoldSeconds);return;}
-#endif
    keyboardPour=false;pourGesture.Begin(modifier,ReleaseHoldSeconds);
   }
   public void EndPourPress(){
-#if UNITY_IOS
    if(IsTiltPourMode){
     var tiltAction=tiltPourGesture.End();keyboardPour=false;if(releaseFill!=null)releaseFill.rectTransform.sizeDelta=new Vector2(0,7);
     if(tiltAction==PourAction.Release)ReleaseBuffer();else if(tiltAction==PourAction.Hold)PourWithModifier(true);
     return;
    }
-#endif
    if(pourGesture.Active&&pourGesture.Tilted!=Tilt.Modifier){CancelPourPress();return;}
    var action=pourGesture.End();keyboardPour=false;
    if(releaseFill!=null)releaseFill.rectTransform.sizeDelta=new Vector2(0,7);
    if(action==PourAction.Release)ReleaseBuffer();else if(action==PourAction.Pour||action==PourAction.Hold)PourWithModifier(action==PourAction.Hold);
   }
   public void CancelPourPress(){pourGesture.Cancel();
-#if UNITY_IOS
    tiltPourGesture.Cancel();
-#endif
    keyboardPour=false;if(releaseFill!=null)releaseFill.rectTransform.sizeDelta=new Vector2(0,7);}
   void OnApplicationFocus(bool focused){if(!focused)CancelPourPress();}
   void OnApplicationPause(bool paused){if(paused)CancelPourPress();}
